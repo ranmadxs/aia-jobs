@@ -12,7 +12,7 @@ packages = [
 aia-jobs = "listener.cli:main"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.13"
 mcp = {version = ">=1.0", extras = ["cli"]}
 python-dotenv = "^1.0"
 pymongo = ">=4.0"
