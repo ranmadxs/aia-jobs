@@ -55,9 +55,41 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-root --with dev
       - name: Collect coverage
-        run: poetry run pytest --cov=listener --cov-fail-under=10 --cov-report=term-missing --cov-report=xml:coverage.xml -q
+        run: |
+          poetry run pytest --cov=listener --cov-fail-under=10 --cov-report=term-missing --cov-report=xml:coverage.xml -q
+          poetry run python -m coverage report > coverage.md
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v5
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: coverage-report
-          path: coverage.xml
+          path: coverage.md
+      - name: Add coverage link to summary
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.request
+          repo = os.environ['GITHUB_REPOSITORY']
+          run_id = os.environ['GITHUB_RUN_ID']
+          token = os.environ['GITHUB_TOKEN']
+          url = f'https://api.github.com/repos/{repo}/actions/runs/{run_id}/artifacts'
+          req = urllib.request.Request(url, headers={
+              'Authorization': f'token {token}',
+              'Accept': 'application/vnd.github+json',
+              'User-Agent': 'github-actions'
+          })
+          with urllib.request.urlopen(req) as resp:
+              data = json.load(resp)
+          artifact = next((a for a in data['artifacts'] if a['name'] == 'coverage-report'), None)
+          if artifact is None:
+              raise SystemExit('Coverage artifact not found')
+          link = f'https://github.com/{repo}/suites/{run_id}/artifacts/{artifact['id']}'
+          summary = os.environ.get('GITHUB_STEP_SUMMARY')
+          if summary:
+              with open(summary, 'a') as f:
+                  f.write('## Coverage report\n')
+                  f.write(f'- [Ver el reporte de cobertura]({link})\n')
+          print(link)
+          PY
