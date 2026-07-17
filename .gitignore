@@ -3,6 +3,9 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# ── Secrets locales (NO commitear: contiene valores reales) ──────────────────
+.github/SECRETS.md
+
 # C extensions
 *.so
 

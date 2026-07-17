@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "aia-jobs"
+version = "0.1.0"
+description = "Listener de correo Yahoo (IMAP IDLE) que guarda nuevos emails en MongoDB"
+authors = ["ranmadxs <ranmadxs@gmail.com>"]
+readme = "README.md"
+packages = [
+    {include = "listener"},
+]
+
+[tool.poetry.scripts]
+aia-jobs = "listener.cli:main"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+mcp = {version = ">=1.0", extras = ["cli"]}
+python-dotenv = "^1.0"
+pymongo = ">=4.0"
+pdfplumber = ">=0.11.10"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=8.0)",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
