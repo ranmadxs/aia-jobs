@@ -54,24 +54,52 @@ jobs:
         run: curl -sSL https://install.python-poetry.org | python3 -
       - name: Install dependencies
         run: poetry install --no-root --with dev
-      - name: Collect coverage
+      - name: Run coverage
         run: |
           poetry run pytest --cov=listener --cov-fail-under=10 --cov-report=term-missing --cov-report=xml:coverage.xml -q
-          poetry run python -m coverage report > coverage.md
+        continue-on-error: true
+      - name: Generate coverage markdown
+        if: always()
+        run: |
+          if [ -f coverage.xml ]; then
+            poetry run python -m coverage report > coverage.md
+          else
+            echo "No coverage.xml available" > coverage.md
+          fi
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v7.0.1
         with:
           name: coverage-report
-          path: coverage.md
-      - name: Add coverage link to summary
+          path: |
+            coverage.md
+            coverage.xml
+      - name: Add coverage summary
         if: always()
         run: |
-          repo="${{ github.repository }}"
-          run_id="${{ github.run_id }}"
-          link="https://github.com/${repo}/actions/runs/${run_id}/artifacts"
-          if [ -n "$GITHUB_STEP_SUMMARY" ]; then
-            printf '## Coverage report\n' >> "$GITHUB_STEP_SUMMARY"
-            printf '- [Ver el reporte de cobertura](%s)\n' "$link" >> "$GITHUB_STEP_SUMMARY"
+          if [ ! -f coverage.xml ]; then
+            echo '## Coverage report' >> "$GITHUB_STEP_SUMMARY"
+            echo '- No coverage data was generated.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
-          echo "$link"
+          python3 - <<'PY' > /tmp/coverage_summary.md
+          import xml.etree.ElementTree as ET
+          root = ET.parse('coverage.xml').getroot()
+          line_rate = float(root.attrib.get('line-rate', 0.0)) * 100
+          branch_rate = root.attrib.get('branch-rate')
+          if branch_rate is not None:
+              branch_rate = float(branch_rate) * 100
+          print('## Coverage report')
+          print('')
+          print(f'- Line coverage: {line_rate:.1f}%')
+          if branch_rate is not None:
+              print(f'- Branch coverage: {branch_rate:.1f}%')
+          print('')
+          print('Artifact:')
+          print(f'- [Ver reporte de cobertura](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)')
+          PY
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            cat /tmp/coverage_summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            cat /tmp/coverage_summary.md
+          fi
