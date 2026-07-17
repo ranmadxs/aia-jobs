@@ -5,6 +5,13 @@ Todos los cambios relevantes de este proyecto se documentan aquí.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y el versionado sigue [SemVer](https://semver.org/lang/es/).
 
+## [0.1.0a5] - 2026-07-17
+
+### Cambiado
+- Logs: el `datefmt` ahora incluye fecha completa (`%Y-%m-%d %H:%M:%S`) y el
+  mensaje `📥 Nuevo correo` muestra la **fecha real del correo** (`date_str`
+  del header Date), no solo la hora de procesamiento.
+
 ## [0.1.0a4] - 2026-07-17
 
 ### Cambiado

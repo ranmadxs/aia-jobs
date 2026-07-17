@@ -28,7 +28,7 @@ def setup_logging() -> None:
 
     fmt = logging.Formatter(
         "%(asctime)s [aia-jobs] [%(levelname)s] %(message)s",
-        datefmt="%H:%M:%S",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
     file_handler = TimedRotatingFileHandler(
@@ -73,9 +73,14 @@ def _process_message(client: YahooIMAPClient, col, msg_id: bytes) -> str:
     result = save_email(col, doc)
     subject = doc.get("subject", "(sin asunto)")
     from_addr = doc.get("from_addr", "")
+    date_str = doc.get("date_str", "")
     if result == "inserted":
-        # Log explícito cada vez que llega un correo nuevo, con su asunto.
-        logger.info("📥 Nuevo correo | Asunto: %s | De: %s", subject, from_addr)
+        # Log explícito cada vez que llega un correo nuevo, con su asunto
+        # y la fecha real del correo (no la del procesamiento).
+        logger.info(
+            "📥 Nuevo correo | Fecha: %s | Asunto: %s | De: %s",
+            date_str, subject, from_addr,
+        )
     elif result == "skipped":
         logger.debug("Correo ya existente (omitido) | Asunto: %s", subject)
     return result
