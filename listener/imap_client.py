@@ -92,6 +92,14 @@ class YahooIMAPClient:
         _, msgs = self.conn.search(None, "ALL")
         return msgs[0].split() if msgs[0] else []
 
+    def mark_seen(self, msg_id: bytes) -> None:
+        """Marca el correo como leído en el servidor (flag \\Seen)."""
+        try:
+            self._ensure_connected()
+            self.conn.store(msg_id, "+FLAGS", "\\Seen")
+        except Exception as e:
+            logger.warning("No se pudo marcar como leído %s: %s", msg_id, e)
+
     def search_unseen(self) -> list[bytes]:
         self._ensure_connected()
         _, msgs = self.conn.search(None, "UNSEEN")

@@ -6,6 +6,7 @@ import os
 import signal
 import sys
 import time
+from datetime import datetime, timedelta, timezone
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
@@ -81,9 +82,28 @@ def _process_message(client: YahooIMAPClient, col, msg_id: bytes) -> str:
             "📥 Nuevo correo | Fecha: %s | Asunto: %s | De: %s",
             date_str, subject, from_addr,
         )
+        # Marcar como leído en el servidor, SALVO si es de la última semana
+        # (para no tocar correos recientes en la bandeja de Yahoo).
+        _maybe_mark_seen(client, msg_id, doc)
     elif result == "skipped":
         logger.debug("Correo ya existente (omitido) | Asunto: %s", subject)
     return result
+
+
+# No marcar como leídos los correos de los últimos 7 días.
+_SEEN_GRACE_DAYS = 7
+
+
+def _maybe_mark_seen(client: YahooIMAPClient, msg_id: bytes, doc: dict) -> None:
+    """Marca el correo como \\Seen en IMAP solo si es anterior a la ventana de gracia."""
+    fecha = doc.get("fecha_remitente")
+    if fecha is None:
+        return
+    limite = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=_SEEN_GRACE_DAYS)
+    if fecha < limite:
+        client.mark_seen(msg_id)
+        logger.debug("Correo antiguo marcado como leído (fuera de %d días): %s",
+                     _SEEN_GRACE_DAYS, doc.get("subject", ""))
 
 
 def run_once(client: YahooIMAPClient, col) -> int:
