@@ -28,18 +28,6 @@ jobs:
       - name: Run unit tests
         run: poetry run pytest -v
 
-  # ── Build de PR: solo valida que la imagen compila (NO push) ────────────────
-  build-pr:
-    if: github.event_name == 'pull_request'
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: Build image (no push)
-        run: |
-          PR_SHA="pr-${{ github.event.pull_request.number }}"
-          docker build -t "keitarodxs/aia-jobs:${PR_SHA}" .
-          echo "✅ Imagen construida para el PR #${{ github.event.pull_request.number }}"
 
   # ── Build de release: construye y publica la imagen en Docker Hub ──────────
   build-and-publish:
