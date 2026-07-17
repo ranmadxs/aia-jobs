@@ -18,6 +18,15 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
+      - name: Cache Poetry packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
       - name: Install Poetry
         run: curl -sSL https://install.python-poetry.org | python3 -
       - name: Install dependencies
@@ -32,12 +41,21 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
+      - name: Cache Poetry packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
       - name: Install Poetry
         run: curl -sSL https://install.python-poetry.org | python3 -
       - name: Install dependencies
         run: poetry install --no-root --with dev
       - name: Collect coverage
-        run: poetry run pytest --cov=listener --cov-report=term-missing --cov-report=xml:coverage.xml -q
+        run: poetry run pytest --cov=listener --cov-fail-under=10 --cov-report=term-missing --cov-report=xml:coverage.xml -q
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
