@@ -5,6 +5,13 @@ Todos los cambios relevantes de este proyecto se documentan aquí.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y el versionado sigue [SemVer](https://semver.org/lang/es/).
 
+## [0.1.0a4] - 2026-07-17
+
+### Cambiado
+- Logs: el file handler pasa de DEBUG a INFO y se silencia el logger de
+  pymongo/motor (WARNING). Así los `📥 Nuevo correo` quedan visibles en
+  `/app/logs` sin el ruido de los heartbeats de MongoDB.
+
 ## [0.1.0a3] - 2026-07-17
 
 ### Arreglado

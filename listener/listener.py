@@ -35,11 +35,16 @@ def setup_logging() -> None:
         log_file, when="midnight", backupCount=7, encoding="utf-8"
     )
     file_handler.setFormatter(fmt)
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(logging.INFO)
 
     console_handler = logging.StreamHandler(sys.stderr)
     console_handler.setFormatter(fmt)
     console_handler.setLevel(logging.INFO)
+
+    # Silenciar el ruido de DEBUG de las librerías (pymongo/motor emiten
+    # heartbeats y traces que enturbian los logs de los correos nuevos).
+    logging.getLogger("pymongo").setLevel(logging.WARNING)
+    logging.getLogger("motor").setLevel(logging.WARNING)
 
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
