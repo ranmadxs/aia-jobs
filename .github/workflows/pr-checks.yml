@@ -85,7 +85,7 @@ jobs:
           artifact = next((a for a in data['artifacts'] if a['name'] == 'coverage-report'), None)
           if artifact is None:
               raise SystemExit('Coverage artifact not found')
-          link = f'https://github.com/{repo}/suites/{run_id}/artifacts/{artifact['id']}'
+          link = f'https://github.com/{repo}/actions/artifacts/{artifact["id"]}'
           summary = os.environ.get('GITHUB_STEP_SUMMARY')
           if summary:
               with open(summary, 'a') as f:
