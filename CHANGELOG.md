@@ -5,6 +5,13 @@ Todos los cambios relevantes de este proyecto se documentan aquí.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y el versionado sigue [SemVer](https://semver.org/lang/es/).
 
+## [0.1.0a3] - 2026-07-17
+
+### Arreglado
+- `fetch_message` en `imap_client.py`: maneja ambos formatos de respuesta de
+  `IMAP.fetch` (tupla y plano) para evitar el error `'int' object has no
+  attribute 'decode'` al parsear el cuerpo del correo.
+
 ## [0.1.0a2] - 2026-07-16
 
 ### Cambiado

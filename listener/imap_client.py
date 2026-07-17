@@ -68,8 +68,20 @@ class YahooIMAPClient:
             try:
                 self._ensure_connected()
                 _, data = self.conn.fetch(msg_id, "(RFC822)")
-                if data and data[0] is not None:
-                    return data[0][1]
+                if not data:
+                    continue
+                # La respuesta de fetch puede venir como:
+                #   [(b'N (RFC822 {size})', b'<raw bytes>'), b')']   -> tupla
+                # o como [b'N (RFC822 {size})', b'<raw bytes>', b')'] -> plano
+                # En el caso plano, data[0][1] indexa un byte (int) y rompe.
+                for part in data:
+                    if isinstance(part, tuple):
+                        body = part[1]
+                        if isinstance(body, (bytes, bytearray)):
+                            return bytes(body)
+                    elif isinstance(part, (bytes, bytearray)) and len(part) > 50:
+                        # payload suelto (cuerpo del mensaje)
+                        return bytes(part)
             except Exception as e:
                 logger.warning("fetch falló (%s), reconectando", e)
                 self.connect()
