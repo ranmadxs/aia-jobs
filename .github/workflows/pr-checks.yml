@@ -24,6 +24,18 @@ jobs:
         run: poetry install --no-root --with dev
       - name: Run unit tests
         run: poetry run pytest -v
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install Poetry
+        run: curl -sSL https://install.python-poetry.org | python3 -
+      - name: Install dependencies
+        run: poetry install --no-root --with dev
       - name: Collect coverage
         run: poetry run pytest --cov=listener --cov-report=term-missing --cov-report=xml:coverage.xml -q
       - name: Upload coverage artifact
