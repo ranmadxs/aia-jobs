@@ -1,9 +1,7 @@
 name: Docker Image Publish
 
 on:
-  push:
-    branches:
-      - "main"    
+  push:  
     tags:
       - "v*.*.*"
 
@@ -69,6 +67,7 @@ jobs:
           docker stop aia-jobs 2>/dev/null || true
           docker rm aia-jobs 2>/dev/null || true
           docker run -d --name aia-jobs --restart unless-stopped \
+            --network=host \
             -v /opt/aia-jobs/logs:/app/logs \
             -e YAHOO_EMAIL="${{ secrets.YAHOO_EMAIL }}" \
             -e YAHOO_APP_PASSWORD="${{ secrets.YAHOO_APP_PASSWORD }}" \
