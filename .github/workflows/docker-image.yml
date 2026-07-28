@@ -83,7 +83,11 @@ jobs:
     runs-on: [self-hosted, nara]
     steps:
       - name: Esperar a que la API esté lista
-        run: sleep 5
+        run: |
+          for i in $(seq 1 12); do
+            curl -sf http://localhost:8080/docs > /dev/null && break
+            sleep 5
+          done
       - name: Disparar sync histórico BCI (último mes)
         run: |
           curl -s -X POST http://localhost:8080/jobs/sync-historical-bci \
