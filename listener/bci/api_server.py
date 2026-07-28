@@ -202,7 +202,10 @@ def start_api_server(loop=None) -> threading.Thread:
         from aiohttp import web
 
         global _server
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         app = web.Application()
+        app["loop"] = loop
 
         app.router.add_post(f"{API_BASE}/jobs/sync-historical-bci", handle_sync)
         app.router.add_get(f"{API_BASE}/jobs/status", handle_status)
@@ -210,11 +213,11 @@ def start_api_server(loop=None) -> threading.Thread:
         app.router.add_get("/openapi.json", handle_openapi)
 
         _server = web.AppRunner(app)
-        asyncio.get_event_loop().run_until_complete(_server.setup())
+        loop.run_until_complete(_server.setup())
         site = web.TCPSite(_server, API_HOST, API_PORT)
-        asyncio.get_event_loop().run_until_complete(site.start())
+        loop.run_until_complete(site.start())
         logger.info("API servidor escuchando en http://0.0.0.0:%d", API_PORT)
-        asyncio.get_event_loop().run_forever()
+        loop.run_forever()
 
     thread = threading.Thread(target=_run, daemon=True)
     thread.start()
