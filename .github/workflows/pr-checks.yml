@@ -1,0 +1,105 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+# Cancela runs obsoletos del mismo PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Cache Poetry packages
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+      - name: Install Poetry
+        run: curl -sSL https://install.python-poetry.org | python3 -
+      - name: Install dependencies
+        run: poetry install --no-root --with dev
+      - name: Run unit tests
+        run: poetry run pytest -v
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Cache Poetry packages
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+          key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-
+      - name: Install Poetry
+        run: curl -sSL https://install.python-poetry.org | python3 -
+      - name: Install dependencies
+        run: poetry install --no-root --with dev
+      - name: Run coverage
+        run: |
+          poetry run pytest --cov=listener --cov-fail-under=10 --cov-report=term-missing --cov-report=xml:coverage.xml -q
+        continue-on-error: true
+      - name: Generate coverage markdown
+        if: always()
+        run: |
+          if [ -f coverage.xml ]; then
+            poetry run python -m coverage report > coverage.md
+          else
+            echo "No coverage.xml available" > coverage.md
+          fi
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: coverage-report
+          path: |
+            coverage.md
+            coverage.xml
+      - name: Add coverage summary
+        if: always()
+        run: |
+          if [ ! -f coverage.xml ]; then
+            echo '## Coverage report' >> "$GITHUB_STEP_SUMMARY"
+            echo '- No coverage data was generated.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 - <<'PY' > /tmp/coverage_summary.md
+          import xml.etree.ElementTree as ET
+          root = ET.parse('coverage.xml').getroot()
+          line_rate = float(root.attrib.get('line-rate', 0.0)) * 100
+          branch_rate = root.attrib.get('branch-rate')
+          if branch_rate is not None:
+              branch_rate = float(branch_rate) * 100
+          print('## Coverage report')
+          print('')
+          print(f'- Line coverage: {line_rate:.1f}%')
+          if branch_rate is not None:
+              print(f'- Branch coverage: {branch_rate:.1f}%')
+          print('')
+          print('Artifact:')
+          print(f'- [Ver reporte de cobertura](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)')
+          PY
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+            cat /tmp/coverage_summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            cat /tmp/coverage_summary.md
+          fi
