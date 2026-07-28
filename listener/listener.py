@@ -17,6 +17,7 @@ from listener.email_parser import parse_email
 from listener.store import get_collection, save_email
 from listener.bci.filter import is_bci_cartola, process_bci_cartola
 from listener.bci.store import save_cartola
+from listener.bci.api_server import start_api_server
 
 logger = logging.getLogger("aia-jobs.listener")
 
@@ -180,6 +181,7 @@ def run_forever(poll_interval: int = 60) -> None:
 def main() -> None:
     setup_logging()
     poll = int(os.getenv("LISTENER_POLL_INTERVAL", "60"))
+    start_api_server()
     run_forever(poll_interval=poll)
 
 

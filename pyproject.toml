@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aia-jobs"
-version = "0.2.1"
+version = "0.3.0"
 description = "Listener de correo Yahoo (IMAP IDLE) que guarda nuevos emails en MongoDB"
 authors = ["ranmadxs <ranmadxs@gmail.com>"]
 readme = "README.md"
@@ -17,6 +17,7 @@ mcp = {version = ">=1.0", extras = ["cli"]}
 python-dotenv = "^1.0"
 pymongo = ">=4.0"
 pdfplumber = ">=0.11.10"
+aiohttp = ">=3.9"
 
 [build-system]
 requires = ["poetry-core"]
