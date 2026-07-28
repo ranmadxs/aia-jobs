@@ -74,5 +74,6 @@ jobs:
             -e YAHOO_APP_PASSWORD="${{ secrets.YAHOO_APP_PASSWORD }}" \
             -e MONGODB_URI="${{ secrets.MONGODB_URI }}" \
             -e LISTENER_POLL_INTERVAL="${{ secrets.LISTENER_POLL_INTERVAL || '60' }}" \
+            -e BCI_PDF_PASSWORD="${{ secrets.BCI_PDF_PASSWORD }}" \
             "$IMAGE"
           echo "Despliegue en nara completado (imagen: $IMAGE)"

@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 from listener.imap_client import YahooIMAPClient
 from listener.email_parser import parse_email
 from listener.store import get_collection, save_email
+from listener.bci.filter import is_bci_cartola, process_bci_cartola
+from listener.bci.store import save_cartola
 
 logger = logging.getLogger("aia-jobs.listener")
 
@@ -87,6 +89,8 @@ def _process_message(client: YahooIMAPClient, col, msg_id: bytes) -> str:
         _maybe_mark_seen(client, msg_id, doc)
     elif result == "skipped":
         logger.debug("Correo ya existente (omitido) | Asunto: %s", subject)
+    if is_bci_cartola(doc):
+        _process_bci_cartola(doc)
     return result
 
 
@@ -104,6 +108,20 @@ def _maybe_mark_seen(client: YahooIMAPClient, msg_id: bytes, doc: dict) -> None:
         client.mark_seen(msg_id)
         logger.debug("Correo antiguo marcado como leído (fuera de %d días): %s",
                      _SEEN_GRACE_DAYS, doc.get("subject", ""))
+
+
+def _process_bci_cartola(doc: dict) -> None:
+    """Si el correo es una cartola BCI, la guarda en la colección cartolas."""
+    cartola = process_bci_cartola(doc)
+    if cartola is None:
+        return
+    result = save_cartola(cartola)
+    subject = doc.get("subject", "(sin asunto)")
+    period = cartola.get("period", "")
+    logger.info(
+        "🏦 BCI Cartola | Periodo: %s | Asunto: %s | Resultado: %s",
+        period, subject, result,
+    )
 
 
 def run_once(client: YahooIMAPClient, col) -> int:
