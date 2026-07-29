@@ -165,7 +165,7 @@ def sync_bci_emails(sender: str, year: int, month: int) -> dict:
     """
     since = datetime(year, month, 1, tzinfo=timezone.utc)
     if month == 12:
-       直到 = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+        hasta = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
     else:
         hasta = datetime(year, month + 1, 1, tzinfo=timezone.utc)
 

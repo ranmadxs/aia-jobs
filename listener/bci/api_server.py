@@ -4,9 +4,16 @@ import json
 import logging
 import os
 import threading
-from datetime import datetime
-from pathlib import Path
 from typing import Optional
+
+
+def _get_version() -> str:
+    try:
+        from importlib.metadata import version
+
+        return version("aia-jobs")
+    except Exception:
+        return os.getenv("AIA_JOBS_VERSION", "0.0.0")
 
 logger = logging.getLogger("aia-jobs.api")
 
@@ -19,7 +26,7 @@ _OPENAPI_SPEC = {
     "info": {
         "title": "aia-jobs API",
         "description": "API para gestionar jobs y escuchar correos BCI.",
-        "version": "0.4.0",
+        "version": _get_version(),
     },
     "paths": {
         f"{API_BASE}/jobs/sync-bci-emails": {
