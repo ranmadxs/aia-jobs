@@ -66,7 +66,7 @@ class TestApiServerImport:
 
     def test_openapi_info(self):
         from unittest.mock import patch
-        from listener.bci.api_server import _OPENAPI_SPEC
+        from listener.bci.api_server import _OPENAPI_SPEC, _get_version
         assert _OPENAPI_SPEC["info"]["title"] == "aia-jobs API"
         with patch("importlib.metadata.version", return_value="0.4.2"):
-            assert _OPENAPI_SPEC["info"]["version"] != "0.0.0"
+            assert _get_version() == "0.4.2"

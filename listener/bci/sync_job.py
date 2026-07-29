@@ -104,7 +104,7 @@ def sync_historical_cartolas(months_back: Optional[int] = None) -> dict:
 
     query = {
         "from_addr": {"$regex": BCI_SENDER, "$options": "i"},
-        "subject": {"$regex": "CUENTA CORRIENTE", "$options": "i"},
+        "subject": {"$regex": "CUENTA CORRIENTE|CONSUMO", "$options": "i"},
     }
     all_docs = list(email_col.find(query))
     pending = [d for d in all_docs if _needs_transform(d)]
