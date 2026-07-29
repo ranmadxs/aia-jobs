@@ -100,5 +100,6 @@ def transform_cartola(doc: dict) -> dict | None:
         "total_movimientos": len(movements),
         "movimientos": movements,
         "fetched_at": doc.get("fetched_at", ""),
+        "pdf": atts[0],
     }
     return resultado
