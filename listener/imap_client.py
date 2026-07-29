@@ -100,10 +100,63 @@ class YahooIMAPClient:
         except Exception as e:
             logger.warning("No se pudo marcar como leído %s: %s", msg_id, e)
 
+    def mark_seen_uid(self, uid: int) -> None:
+        """Marca como leído usando UID (para idempotencia entre reinicios)."""
+        try:
+            self._ensure_connected()
+            self.conn.uid("STORE", str(uid), "+FLAGS", "\\Seen")
+        except Exception as e:
+            logger.warning("No se pudo marcar como leído UID %d: %s", uid, e)
+
+    def fetch_uid(self) -> list[tuple[int, bytes]]:
+        """Devuelve la lista de (uid, seq_id) de todos los mensajes.
+
+        Los UIDs son permanentes dentro de la sesión y permiten
+        identificar mensajes de forma idempotente entre reinicios.
+        """
+        self._ensure_connected()
+        _, data = self.conn.uid("SEARCH", None, "ALL")
+        if not data or not data[0]:
+            return []
+        uids = data[0].split()
+        return [(int(u), None) for u in uids]
+
     def search_unseen(self) -> list[bytes]:
         self._ensure_connected()
         _, msgs = self.conn.search(None, "UNSEEN")
         return msgs[0].split() if msgs[0] else []
+
+    def search_unseen_uids(self) -> list[int]:
+        """Devuelve la lista de UIDs de los mensajes sin leer.
+
+        Los UIDs permiten filtrar mensajes ya procesados en reinicios
+        posteriores, haciendo el listener idempotente.
+        """
+        self._ensure_connected()
+        _, data = self.conn.uid("SEARCH", None, "UNSEEN")
+        if not data or not data[0]:
+            return []
+        return [int(u) for u in data[0].split()]
+
+    def fetch_message_uid(self, uid: int) -> bytes | None:
+        """Descarga los bytes RFC822 de un mensaje por UID (con reintentos)."""
+        for _ in range(3):
+            try:
+                self._ensure_connected()
+                _, data = self.conn.uid("FETCH", str(uid), "(RFC822)")
+                if not data:
+                    continue
+                for part in data:
+                    if isinstance(part, tuple):
+                        body = part[1]
+                        if isinstance(body, (bytes, bytearray)):
+                            return bytes(body)
+                    elif isinstance(part, (bytes, bytearray)) and len(part) > 50:
+                        return bytes(part)
+            except Exception as e:
+                logger.warning("fetch_uid(%d) falló (%s), reconectando", uid, e)
+                self.connect()
+        return None
 
     # ── Espera de nuevos correos ──────────────────────────────────────────
     def wait_for_new(self, poll_interval: int = 60, idle_timeout: int = 29 * 60):
@@ -117,51 +170,41 @@ class YahooIMAPClient:
             return self._wait_idle(idle_timeout)
         return self._wait_poll(poll_interval)
 
-    def _wait_idle(self, timeout: int) -> list[bytes]:
+    def _wait_idle(self, timeout: int) -> list[int]:
         self._ensure_connected()
-        # Guarda el set actual para detectar novedades
-        before = set(self.search_all())
+        before = set(self.fetch_uid())
         try:
-            self.conn.send(b"%s IDLE\r\n" % self.conn.tag_preauth.encode()
-                           if hasattr(self.conn, "tag_preauth") else b"")
-        except Exception:
-            pass
-        # En la práctica usamos la API de imaplib con un tag manual
-        tag = self.conn._new_tag()
-        self.conn.send(f"{tag} IDLE\r\n".encode())
-        # Leer la respuesta inicial "+ idling"
-        try:
+            self.conn.send(f"{self.conn._new_tag()} IDLE\r\n".encode())
             self.conn.readline()
         except Exception:
             pass
         deadline = time.time() + timeout
-        new_ids: list[bytes] = []
+        new_ids: list[int] = []
         try:
             while time.time() < deadline:
                 r, _, _ = select.select([self.conn.socket()], [], [], deadline - time.time())
                 if r:
-                    # El servidor envió algo (exists/expunge). Salir del IDLE.
                     try:
-                        self.conn.send(f"{tag} DONE\r\n".encode())
+                        self.conn.send(f"{self.conn._new_tag()} DONE\r\n".encode())
                         self.conn.readline()
                     except Exception:
                         pass
-                    after = set(self.search_all())
+                    after = set(self.fetch_uid())
                     new_ids = sorted(after - before)
                     break
         finally:
             try:
-                self.conn.send(f"{tag} DONE\r\n".encode())
+                self.conn.send(f"{self.conn._new_tag()} DONE\r\n".encode())
                 self.conn.readline()
             except Exception:
                 pass
         return new_ids
 
-    def _wait_poll(self, poll_interval: int) -> list[bytes]:
-        before = set(self.search_all())
+    def _wait_poll(self, poll_interval: int) -> list[int]:
+        before = set(self.fetch_uid())
         while True:
             time.sleep(poll_interval)
-            after = set(self.search_all())
+            after = set(self.fetch_uid())
             new_ids = sorted(after - before)
             if new_ids:
                 return new_ids

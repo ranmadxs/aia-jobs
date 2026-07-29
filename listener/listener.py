@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 from listener.imap_client import YahooIMAPClient
 from listener.email_parser import parse_email
-from listener.store import get_collection, save_email
+from listener.store import get_collection, save_email, get_last_uid, set_last_uid
 from listener.bci.filter import is_bci_cartola, process_bci_cartola
 from listener.bci.store import save_cartola
 from listener.bci.api_server import start_api_server
@@ -68,9 +68,9 @@ def _handle_signal(signum, frame):
 
 def run_once(client: YahooIMAPClient, col) -> int:
     """Procesa los correos no leídos actuales. Devuelve cuántos guardó."""
-def _process_message(client: YahooIMAPClient, col, msg_id: bytes) -> str:
-    """Descarga, guarda y loguea un correo. Devuelve el resultado del save."""
-    raw = client.fetch_message(msg_id)
+def _process_message(client: YahooIMAPClient, col, uid: int) -> str:
+    """Descarga, guarda y loguea un correo por UID. Devuelve el resultado del save."""
+    raw = client.fetch_message_uid(uid)
     if raw is None:
         return "error"
     doc = parse_email(email_lib.message_from_bytes(raw))
@@ -79,15 +79,11 @@ def _process_message(client: YahooIMAPClient, col, msg_id: bytes) -> str:
     from_addr = doc.get("from_addr", "")
     date_str = doc.get("date_str", "")
     if result == "inserted":
-        # Log explícito cada vez que llega un correo nuevo, con su asunto
-        # y la fecha real del correo (no la del procesamiento).
         logger.info(
             "📥 Nuevo correo | Fecha: %s | Asunto: %s | De: %s",
             date_str, subject, from_addr,
         )
-        # Marcar como leído en el servidor, SALVO si es de la última semana
-        # (para no tocar correos recientes en la bandeja de Yahoo).
-        _maybe_mark_seen(client, msg_id, doc)
+        _maybe_mark_seen(client, uid, doc)
     elif result == "skipped":
         logger.debug("Correo ya existente (omitido) | Asunto: %s", subject)
     if is_bci_cartola(doc):
@@ -99,14 +95,14 @@ def _process_message(client: YahooIMAPClient, col, msg_id: bytes) -> str:
 _SEEN_GRACE_DAYS = 7
 
 
-def _maybe_mark_seen(client: YahooIMAPClient, msg_id: bytes, doc: dict) -> None:
+def _maybe_mark_seen(client: YahooIMAPClient, uid: int, doc: dict) -> None:
     """Marca el correo como \\Seen en IMAP solo si es anterior a la ventana de gracia."""
     fecha = doc.get("fecha_remitente")
     if fecha is None:
         return
     limite = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=_SEEN_GRACE_DAYS)
     if fecha < limite:
-        client.mark_seen(msg_id)
+        client.mark_seen_uid(uid)
         logger.debug("Correo antiguo marcado como leído (fuera de %d días): %s",
                      _SEEN_GRACE_DAYS, doc.get("subject", ""))
 
@@ -131,12 +127,24 @@ def _process_bci_cartola(doc: dict, col) -> None:
 
 
 def run_once(client: YahooIMAPClient, col) -> int:
-    """Procesa los correos no leídos actuales. Devuelve cuántos guardó."""
+    """Procesa correos no leídos nuevos (UID > last_uid). Devuelve cuántos guardó."""
+    last_uid = get_last_uid()
+    logger.info("Último UID procesado: %d", last_uid)
+    uids = [u for u in client.search_unseen_uids() if u > last_uid]
+    if not uids:
+        logger.info("No hay correos nuevos (UID > %d)", last_uid)
+        return 0
     saved = 0
-    for msg_id in client.search_unseen():
-        result = _process_message(client, col, msg_id)
+    max_uid = last_uid
+    for uid in uids:
+        result = _process_message(client, col, uid)
         if result == "inserted":
             saved += 1
+        if uid > max_uid:
+            max_uid = uid
+    if max_uid > last_uid:
+        set_last_uid(max_uid)
+        logger.info("Último UID persistido: %d", max_uid)
     return saved
 
 
@@ -169,8 +177,12 @@ def run_forever(poll_interval: int = 60) -> None:
             new_ids = client.wait_for_new(poll_interval=poll_interval)
             if new_ids:
                 logger.info("%d correo(s) nuevo(s) detectados", len(new_ids))
-                for msg_id in new_ids:
-                    _process_message(client, col, msg_id)
+                max_uid = get_last_uid()
+                for uid in new_ids:
+                    _process_message(client, col, uid)
+                    if uid > max_uid:
+                        max_uid = uid
+                set_last_uid(max_uid)
         except Exception as e:
             logger.exception("Error en loop de espera: %s", e)
             time.sleep(5)
