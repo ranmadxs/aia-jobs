@@ -13,7 +13,17 @@ def _get_version() -> str:
 
         return version("aia-jobs")
     except Exception:
-        return os.getenv("AIA_JOBS_VERSION", "0.0.0")
+        env_version = os.getenv("AIA_JOBS_VERSION")
+        if env_version:
+            return env_version
+        try:
+            import tomllib
+            from pathlib import Path
+
+            pyproject = tomllib.loads(Path("pyproject.toml").read_text())
+            return pyproject["tool"]["poetry"]["version"]
+        except Exception:
+            return "0.0.0"
 
 logger = logging.getLogger("aia-jobs.api")
 
