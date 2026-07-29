@@ -85,11 +85,7 @@ def save_email(col, doc: dict) -> str:
 
 
 def _strip_attachment_data(doc: dict) -> dict:
-    """Guarda los adjuntos en disco y reemplaza data_b64 por la ruta al archivo.
-
-    Los archivos se guardan en AIA_ATTACHMENTS_DIR (por defecto /app/attachments).
-    El nombre del archivo es un hash del contenido (SHA-256) con la extensión original.
-    """
+    """Guarda adjuntos > 2 MB en disco; los chicos quedan como data_b64 en MongoDB."""
     clean = doc.copy()
     attachments = doc.get("attachments") or []
     cleaned_attachments = []
@@ -97,6 +93,10 @@ def _strip_attachment_data(doc: dict) -> dict:
     for a in attachments:
         data_b64 = a.get("data_b64")
         if data_b64 is None:
+            cleaned_attachments.append(a)
+            continue
+        size = len(base64.b64decode(data_b64))
+        if size < 2 * 1024 * 1024:
             cleaned_attachments.append(a)
             continue
         filename = a.get("filename") or "unknown"
