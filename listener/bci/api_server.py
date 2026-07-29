@@ -18,9 +18,68 @@ _OPENAPI_SPEC = {
     "info": {
         "title": "aia-jobs API",
         "description": "API para gestionar jobs y escuchar correos BCI.",
-        "version": "0.3.0",
+        "version": "0.3.13",
     },
     "paths": {
+        f"{API_BASE}/jobs/sync-bci-emails": {
+            "post": {
+                "summary": "Descargar emails BCI por remitente y mes",
+                "description": "Descarga emails de Yahoo IMAP para un remitente "
+                "en un mes dado y los guarda en email.emails. "
+                "Es idempotente: no re-descarga emails ya existentes.",
+                "operationId": "syncBciEmails",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "sender": {
+                                        "type": "string",
+                                        "description": "Direccion de correo del remitente "
+                                        "a buscar (default: bcimail@bci.cl).",
+                                        "default": "bcimail@bci.cl",
+                                    },
+                                    "year": {
+                                        "type": "integer",
+                                        "description": "Año (ej: 2026).",
+                                        "example": 2026,
+                                    },
+                                    "month": {
+                                        "type": "integer",
+                                        "description": "Mes (1-12).",
+                                        "example": 1,
+                                        "minimum": 1,
+                                        "maximum": 12,
+                                    },
+                                },
+                                "required": ["year", "month"],
+                            },
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Resumen de la descarga",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "downloaded": {"type": "integer"},
+                                        "already_existed": {"type": "integer"},
+                                        "sender": {"type": "string"},
+                                        "period": {"type": "string"},
+                                        "total_searched": {"type": "integer"},
+                                        "error": {"type": ["string", "null"]},
+                                    },
+                                }
+                            }
+                        },
+                    },
+                },
+            }
+        },
         f"{API_BASE}/jobs/sync-historical-bci": {
             "post": {
                 "summary": "Sincronizar cartolas BCI históricas",
@@ -149,6 +208,30 @@ def _build_status_total(bci_col) -> int:
         return 0
 
 
+async def handle_sync_bci_emails(request):
+    from aiohttp import web
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    sender = data.get("sender", "bcimail@bci.cl") if isinstance(data, dict) else "bcimail@bci.cl"
+    year = data.get("year", datetime.now().year) if isinstance(data, dict) else datetime.now().year
+    month = data.get("month", datetime.now().month) if isinstance(data, dict) else datetime.now().month
+
+    from listener.bci.sync_job import sync_bci_emails
+
+    def _run():
+        return sync_bci_emails(sender, year, month)
+
+    loop = request.app["loop"]
+    try:
+        result = await loop.run_in_executor(None, _run)
+    except Exception as e:
+        logger.exception("Error en sync_bci_emails: %s", e)
+        result = {"error": str(e), "downloaded": 0, "already_existed": 0}
+    return web.json_response(result)
+
+
 async def handle_sync(request):
     from aiohttp import web
     try:
@@ -212,6 +295,7 @@ def start_api_server(loop=None) -> threading.Thread:
         app = web.Application()
         app["loop"] = loop
 
+        app.router.add_post(f"{API_BASE}/jobs/sync-bci-emails", handle_sync_bci_emails)
         app.router.add_post(f"{API_BASE}/jobs/sync-historical-bci", handle_sync)
         app.router.add_get(f"{API_BASE}/jobs/status", handle_status)
         app.router.add_get("/docs", handle_swagger)
