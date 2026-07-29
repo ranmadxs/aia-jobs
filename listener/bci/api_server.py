@@ -19,7 +19,7 @@ _OPENAPI_SPEC = {
     "info": {
         "title": "aia-jobs API",
         "description": "API para gestionar jobs y escuchar correos BCI.",
-        "version": "0.3.17",
+        "version": "0.4.0",
     },
     "paths": {
         f"{API_BASE}/jobs/sync-bci-emails": {

@@ -67,4 +67,4 @@ class TestApiServerImport:
     def test_openapi_info(self):
         from listener.bci.api_server import _OPENAPI_SPEC
         assert _OPENAPI_SPEC["info"]["title"] == "aia-jobs API"
-        assert _OPENAPI_SPEC["info"]["version"] == "0.3.17"
+        assert _OPENAPI_SPEC["info"]["version"] == "0.4.0"
