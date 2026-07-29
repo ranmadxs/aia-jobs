@@ -39,7 +39,7 @@ def _needs_transform(doc: dict) -> bool:
 def _filter_by_months(docs: list, months_back: Optional[int]) -> list:
     if months_back is None or months_back <= 0:
         return docs
-    cutoff = datetime.now(timezone.utc) - timedelta(days=30 * months_back)
+    cutoff = datetime.now() - timedelta(days=30 * months_back)
     return [d for d in docs if d.get("fecha_remitente") and d["fecha_remitente"] >= cutoff]
 
 
