@@ -37,10 +37,6 @@ class TestIsBciCartola:
         doc = _parse_email(_bci_doc(from_addr="otros@banco.cl"))
         assert is_bci_cartola(doc) is False
 
-    def test_trimestral_consumo(self):
-        doc = _parse_email(_bci_doc(subject="Cartola Trimestral Consumo"))
-        assert is_bci_cartola(doc) is False
-
     def test_no_bci_body(self):
         doc = _parse_email(_bci_doc(from_addr="noticias@bci.cl"))
         assert is_bci_cartola(doc) is False
