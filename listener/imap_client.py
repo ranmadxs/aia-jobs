@@ -108,8 +108,8 @@ class YahooIMAPClient:
         except Exception as e:
             logger.warning("No se pudo marcar como leído UID %d: %s", uid, e)
 
-    def fetch_uid(self) -> list[tuple[int, bytes]]:
-        """Devuelve la lista de (uid, seq_id) de todos los mensajes.
+    def fetch_uid(self) -> list[int]:
+        """Devuelve la lista de UIDs de todos los mensajes.
 
         Los UIDs son permanentes dentro de la sesión y permiten
         identificar mensajes de forma idempotente entre reinicios.
@@ -118,8 +118,7 @@ class YahooIMAPClient:
         _, data = self.conn.uid("SEARCH", None, "ALL")
         if not data or not data[0]:
             return []
-        uids = data[0].split()
-        return [(int(u), None) for u in uids]
+        return [int(u) for u in data[0].split()]
 
     def search_unseen(self) -> list[bytes]:
         self._ensure_connected()
@@ -154,7 +153,7 @@ class YahooIMAPClient:
                     elif isinstance(part, (bytes, bytearray)) and len(part) > 50:
                         return bytes(part)
             except Exception as e:
-                logger.warning("fetch_uid(%d) falló (%s), reconectando", uid, e)
+                logger.warning("fetch_uid(%s) falló (%s), reconectando", uid, e)
                 self.connect()
         return None
 
@@ -177,27 +176,31 @@ class YahooIMAPClient:
             self.conn.send(f"{self.conn._new_tag()} IDLE\r\n".encode())
             self.conn.readline()
         except Exception:
-            pass
+            return []
         deadline = time.time() + timeout
         new_ids: list[int] = []
+        idle_exited = False
         try:
             while time.time() < deadline:
-                r, _, _ = select.select([self.conn.socket()], [], [], deadline - time.time())
+                remaining = max(0, deadline - time.time())
+                r, _, _ = select.select([self.conn.socket()], [], [], remaining)
                 if r:
                     try:
                         self.conn.send(f"{self.conn._new_tag()} DONE\r\n".encode())
                         self.conn.readline()
                     except Exception:
                         pass
+                    idle_exited = True
                     after = set(self.fetch_uid())
                     new_ids = sorted(after - before)
                     break
         finally:
-            try:
-                self.conn.send(f"{self.conn._new_tag()} DONE\r\n".encode())
-                self.conn.readline()
-            except Exception:
-                pass
+            if not idle_exited:
+                try:
+                    self.conn.send(f"{self.conn._new_tag()} DONE\r\n".encode())
+                    self.conn.readline()
+                except Exception:
+                    pass
         return new_ids
 
     def _wait_poll(self, poll_interval: int) -> list[int]:

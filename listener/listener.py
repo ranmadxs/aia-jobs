@@ -66,8 +66,6 @@ def _handle_signal(signum, frame):
     _shutdown = True
 
 
-def run_once(client: YahooIMAPClient, col) -> int:
-    """Procesa los correos no leídos actuales. Devuelve cuántos guardó."""
 def _process_message(client: YahooIMAPClient, col, uid: int) -> str:
     """Descarga, guarda y loguea un correo por UID. Devuelve el resultado del save."""
     raw = client.fetch_message_uid(uid)
