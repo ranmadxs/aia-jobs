@@ -117,6 +117,11 @@ def _process_bci_cartola(doc: dict) -> None:
     if cartola is None:
         return
     result = save_cartola(cartola)
+    if result in ("inserted", "updated"):
+        col.update_one(
+            {"message_id": doc.get("message_id")},
+            {"$set": {"kind": "bci_cartola", "bci_cartola_transformed_at": datetime.now(timezone.utc).isoformat()}},
+        )
     subject = doc.get("subject", "(sin asunto)")
     period = cartola.get("period", "")
     logger.info(

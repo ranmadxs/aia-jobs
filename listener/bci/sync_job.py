@@ -74,7 +74,10 @@ def sync_historical_cartolas(months_back: Optional[int] = None) -> dict:
         _JOB_STATUS["last_result"] = {"error": "bci collection unavailable"}
         return _JOB_STATUS["last_result"]
 
-    query = {"kind": "bci_cartola"}
+    query = {
+        "from_addr": {"$regex": BCI_SENDER, "$options": "i"},
+        "subject": {"$regex": "CUENTA CORRIENTE", "$options": "i"},
+    }
     all_docs = list(email_col.find(query))
     pending = [d for d in all_docs if _needs_transform(d)]
     filtered = _filter_by_months(pending, months_back)
