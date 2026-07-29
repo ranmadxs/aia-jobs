@@ -71,16 +71,14 @@ def extract_movements(pdf_bytes: bytes, password: str = "") -> list[dict]:
                     continue
                 fecha = txt[:10]
                 rest = txt[10:]
-                descripcion_full = rest.split(nums[0])[0].strip()
-                parts = descripcion_full.split(None, 1)
-                sucursal = parts[0] if parts else ""
-                descripcion = parts[1] if len(parts) > 1 else descripcion_full
                 monto = _parse_amount(nums[-2])
                 saldo = _parse_amount(nums[-1])
+                desc_part = rest.rsplit(nums[-2], 1)[0].strip()
+                parts = desc_part.split(None, 1)
+                sucursal = parts[0] if parts else ""
+                descripcion = parts[1] if len(parts) > 1 else desc_part
                 is_ingreso = False
-                if prev_saldo is None:
-                    is_ingreso = False
-                elif saldo > prev_saldo:
+                if prev_saldo is not None and saldo > prev_saldo:
                     is_ingreso = True
                 movements.append({
                     "fecha": fecha,
