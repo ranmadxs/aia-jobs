@@ -91,7 +91,7 @@ def _process_message(client: YahooIMAPClient, col, msg_id: bytes) -> str:
     elif result == "skipped":
         logger.debug("Correo ya existente (omitido) | Asunto: %s", subject)
     if is_bci_cartola(doc):
-        _process_bci_cartola(doc)
+        _process_bci_cartola(doc, col)
     return result
 
 
@@ -111,7 +111,7 @@ def _maybe_mark_seen(client: YahooIMAPClient, msg_id: bytes, doc: dict) -> None:
                      _SEEN_GRACE_DAYS, doc.get("subject", ""))
 
 
-def _process_bci_cartola(doc: dict) -> None:
+def _process_bci_cartola(doc: dict, col) -> None:
     """Si el correo es una cartola BCI, la guarda en la colección cartolas."""
     cartola = process_bci_cartola(doc)
     if cartola is None:

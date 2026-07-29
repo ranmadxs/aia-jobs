@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aia-jobs"
-version = "0.3.7"
+version = "0.3.8"
 description = "Listener de correo Yahoo (IMAP IDLE) que guarda nuevos emails en MongoDB"
 authors = ["ranmadxs <ranmadxs@gmail.com>"]
 readme = "README.md"
