@@ -85,7 +85,7 @@ class TestExtractPeriodFromPdf:
             b"%%EOF\n"
         )
         period = extract_period_from_pdf(pdf_text)
-        assert period == "2026-06"
+        assert period == "01-06-2026 al 30-06-2026"
 
     def test_no_period(self):
         pdf_text = b"%PDF-1.4\nno period here\n"
