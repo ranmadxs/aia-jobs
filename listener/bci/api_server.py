@@ -162,7 +162,12 @@ async def handle_sync(request):
     def _run():
         return sync_historical_cartolas(months_back if months_back > 0 else None)
 
-    result = await request.app["loop"].run_in_executor(None, _run)
+    loop = request.app["loop"]
+    try:
+        result = await loop.run_in_executor(None, _run)
+    except Exception as e:
+        logger.exception("Error en sync_histórico BCI: %s", e)
+        result = {"error": str(e), "transformed": 0, "skipped": 0, "errors": 0}
     return web.json_response(result)
 
 
