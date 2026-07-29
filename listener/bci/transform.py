@@ -101,10 +101,21 @@ def transform_cartola(doc: dict) -> dict | None:
     if not atts:
         return None
     password = BCI_PDF_PASSWORD or ""
-    try:
-        import base64 as _b64
-        pdf_bytes = _b64.b64decode(atts[0]["data_b64"])
-    except Exception:
+    pdf_bytes = None
+    att = atts[0]
+    if "data_b64" in att:
+        try:
+            import base64 as _b64
+            pdf_bytes = _b64.b64decode(att["data_b64"])
+        except Exception:
+            return None
+    elif "path" in att:
+        try:
+            from pathlib import Path
+            pdf_bytes = Path(att["path"]).read_bytes()
+        except Exception:
+            return None
+    if pdf_bytes is None:
         return None
     period = extract_period_from_pdf(pdf_bytes, password) or doc.get("period", "")
     header = extract_header_from_pdf(pdf_bytes, password)
