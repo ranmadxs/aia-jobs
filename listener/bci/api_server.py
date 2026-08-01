@@ -173,6 +173,52 @@ _OPENAPI_SPEC = {
                 },
             }
         },
+        f"{API_BASE}/jobs/sync-trx": {
+            "post": {
+                "summary": "Sincronizar movimientos a bci.transacciones",
+                "description": "Extrae movimientos no sincronizados de la colección local "
+                "movimientos y los sube a bci.transacciones en MONGODB_URI_MAIN. "
+                "Es idempotente: no duplica movimientos ya existentes. "
+                "Solo procesa movimientos con synced=False.",
+                "operationId": "syncTrx",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "batch_size": {
+                                        "type": "integer",
+                                        "description": "Máximo de movimientos a procesar por ejecución.",
+                                        "default": 500,
+                                        "minimum": 1,
+                                    },
+                                },
+                            },
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Resumen de la sincronización",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "synced": {"type": "integer"},
+                                        "skipped_duplicate": {"type": "integer"},
+                                        "errors": {"type": "integer"},
+                                        "total_unsynced": {"type": "integer"},
+                                        "error": {"type": ["string", "null"]},
+                                    },
+                                }
+                            }
+                        },
+                    },
+                },
+            }
+        },
         "/docs": {
             "get": {
                 "summary": "Swagger UI",
@@ -289,6 +335,28 @@ async def handle_status(request):
     })
 
 
+async def handle_sync_trx(request):
+    from aiohttp import web
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    batch_size = data.get("batch_size", 500) if isinstance(data, dict) else 500
+
+    from listener.bci.sync_job import sync_trx
+
+    def _run():
+        return sync_trx(batch_size if batch_size > 0 else 500)
+
+    loop = request.app["loop"]
+    try:
+        result = await loop.run_in_executor(None, _run)
+    except Exception as e:
+        logger.exception("Error en sync_trx: %s", e)
+        result = {"error": str(e), "synced": 0, "skipped_duplicate": 0, "errors": 0}
+    return web.json_response(result)
+
+
 async def handle_swagger(request):
     from aiohttp import web
     return web.Response(text=_SWAGGER_HTML, content_type="text/html")
@@ -316,6 +384,7 @@ def start_api_server(loop=None) -> threading.Thread:
         app.router.add_post(f"{API_BASE}/jobs/sync-bci-emails", handle_sync_bci_emails)
         app.router.add_post(f"{API_BASE}/jobs/sync-historical-bci", handle_sync)
         app.router.add_get(f"{API_BASE}/jobs/status", handle_status)
+        app.router.add_post(f"{API_BASE}/jobs/sync-trx", handle_sync_trx)
         app.router.add_get("/docs", handle_swagger)
         app.router.add_get("/openapi.json", handle_openapi)
 

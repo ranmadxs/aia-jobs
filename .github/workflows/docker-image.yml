@@ -73,6 +73,7 @@ jobs:
              -e YAHOO_EMAIL="${{ secrets.YAHOO_EMAIL }}" \
              -e YAHOO_APP_PASSWORD="${{ secrets.YAHOO_APP_PASSWORD }}" \
              -e MONGODB_URI="${{ secrets.MONGODB_URI }}" \
+             -e MONGODB_URI_MAIN="${{ secrets.MONGODB_URI_MAIN }}" \
              -e LISTENER_POLL_INTERVAL="${{ secrets.LISTENER_POLL_INTERVAL || '60' }}" \
              -e BCI_PDF_PASSWORD="${{ secrets.BCI_PDF_PASSWORD }}" \
              "$IMAGE"

@@ -4,8 +4,14 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from listener.bci.config import BCI_SENDER, COLLECTION, DB_NAME
-from listener.bci.store import get_bci_collection, save_cartola
+from listener.bci.config import BCI_SENDER
+from listener.bci.store import (
+    _trx_key,
+    get_bci_collection,
+    get_transacciones_collection_main,
+    save_cartola,
+    save_transaccion,
+)
 from listener.bci.transform import transform_cartola
 from listener.email_parser import parse_email
 from listener.store import save_email
@@ -223,3 +229,82 @@ def sync_bci_emails(sender: str, year: int, month: int) -> dict:
         "period": f"{year}-{month:02d}",
         "total_searched": len(uid_list),
     }
+
+
+def sync_trx(batch_size: int = 500) -> dict:
+    """Sincroniza movimientos no sincronizados desde bci.cartolas
+    (MONGODB_URI local) a bci.transacciones en MONGODB_URI_MAIN.
+
+    Idempotente: verifica por trx_key (hash de campos clave) antes de
+    insertar en la base remota. Solo procesa movimientos de cartolas
+    que no hayan sido completamente sincronizados.
+    Cada transaccion destino tiene fecha_creacion (timestamp de la sync)
+    y mantiene la fecha original del movimiento.
+
+    Args:
+        batch_size: Máximo de movimientos a procesar por ejecución.
+
+    Returns:
+        Dict con resumen del procesamiento.
+    """
+    _JOB_STATUS["running"] = True
+    _JOB_STATUS["current_job"] = "sync_trx"
+    _JOB_STATUS["last_run"] = datetime.now(timezone.utc).isoformat()
+
+    bci_col = get_bci_collection()
+    trx_col = get_transacciones_collection_main()
+
+    if bci_col is None:
+        _JOB_STATUS["running"] = False
+        return {"error": "bci collection unavailable (local)"}
+    if trx_col is None:
+        _JOB_STATUS["running"] = False
+        return {"error": "transacciones collection unavailable (MONGODB_URI_MAIN)"}
+
+    cartolas = list(bci_col.find({"movimientos": {"$exists": True, "$ne": []}}))
+
+    synced_count = 0
+    skipped = 0
+    errors = 0
+    now_iso = datetime.now(timezone.utc).isoformat()
+    processed = 0
+
+    for cartola in cartolas[:100]:
+        cartola_id = cartola.get("message_id", str(cartola.get("_id", "")))
+        movs = cartola.get("movimientos", [])
+        for mov in movs:
+            if processed >= batch_size:
+                break
+            processed += 1
+            try:
+                trx_doc = {
+                    "fecha": mov.get("fecha", ""),
+                    "sucursal": mov.get("sucursal", ""),
+                    "descripcion": mov.get("descripcion", ""),
+                    "saldo": mov.get("saldo", 0),
+                    "abono": mov.get("abono", 0),
+                    "cargo": mov.get("cargo", 0),
+                    "cartola_id": cartola_id,
+                    "fecha_creacion": now_iso,
+                    "trx_key": _trx_key(mov),
+                }
+                result = save_transaccion(trx_doc)
+                if result == "inserted":
+                    synced_count += 1
+                elif result == "skipped":
+                    skipped += 1
+            except Exception as e:
+                logger.exception("Error sincronizando movimiento: %s", e)
+                errors += 1
+
+    summary = {
+        "synced": synced_count,
+        "skipped_duplicate": skipped,
+        "errors": errors,
+        "total_processed": processed,
+        "total_cartolas": len(cartolas),
+    }
+    _JOB_STATUS["running"] = False
+    _JOB_STATUS["current_job"] = None
+    _JOB_STATUS["last_result"] = summary
+    return summary
