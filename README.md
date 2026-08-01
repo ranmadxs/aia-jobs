@@ -29,7 +29,7 @@ listener/
 
 ```bash
 poetry install
-cp .env.example .env   # completa YAHOO_EMAIL, YAHOO_APP_PASSWORD, MONGODB_URI
+cp .env.example .env   # completa YAHOO_EMAIL, YAHOO_APP_PASSWORD, MONGODB_URI, MONGODB_URI_MAIN
 poetry run aia-jobs listen
 ```
 
@@ -42,6 +42,7 @@ igual que `aia-mcp`:
 docker build -t aia-jobs .
 docker run -d --name aia-jobs \
   -e YAHOO_EMAIL=... -e YAHOO_APP_PASSWORD=... -e MONGODB_URI=... \
+  -e MONGODB_URI_MAIN=... \
   -v $(pwd)/logs:/app/logs \
   aia-jobs
 ```

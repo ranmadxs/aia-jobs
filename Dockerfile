@@ -41,6 +41,9 @@ ENV FASTMCP_LOG_LEVEL=INFO
 # MongoDB (donde se guardan los emails)
 ENV MONGODB_URI=
 
+# MongoDB principal (transacciones BCI)
+ENV MONGODB_URI_MAIN=
+
 # Email (IMAP Yahoo)
 ENV YAHOO_EMAIL=
 ENV YAHOO_APP_PASSWORD=
